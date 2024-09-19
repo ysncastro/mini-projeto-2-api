@@ -1,8 +1,9 @@
 package projetos.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import projetos.exception.VendedorNotFoundException;
 import projetos.model.Funcionario;
 import projetos.service.FuncionarioService;
 
@@ -12,17 +13,22 @@ import java.util.List;
 @RequestMapping("/v1/funcionarios")
 public class FuncionarioController {
 
-    @Autowired
-    private FuncionarioService funcionarioService;
+    private final FuncionarioService funcionarioService;
+
+    public FuncionarioController(FuncionarioService funcionarioService) {
+        this.funcionarioService = funcionarioService;
+    }
 
     @GetMapping
-    public List<Funcionario> listarFuncionarios() {
-        return funcionarioService.listarFuncionarios();
+    public ResponseEntity<List<Funcionario>> listarFuncionarios() {
+        List<Funcionario> funcionarios = funcionarioService.listarFuncionarios();
+        return ResponseEntity.ok(funcionarios);
     }
 
     @GetMapping("/farmacia/{farmaciaId}")
-    public List<Funcionario> listarFuncionariosPorFarmacia(@PathVariable Long farmaciaId) {
-        return funcionarioService.listarFuncionariosPorFarmacia(farmaciaId);
+    public ResponseEntity<List<Funcionario>> listarFuncionariosPorFarmacia(@PathVariable Long farmaciaId) {
+        List<Funcionario> funcionarios = funcionarioService.listarFuncionariosPorFarmacia(farmaciaId);
+        return ResponseEntity.ok(funcionarios);
     }
 
     @GetMapping("/{id}")
@@ -33,8 +39,13 @@ public class FuncionarioController {
     }
 
     @PostMapping("/farmacia/{idFarmacia}")
-    public Funcionario adicionarFuncionario(@RequestBody Funcionario funcionario, @PathVariable Long idFarmacia) {
-        return funcionarioService.adicionarFuncionario(funcionario, idFarmacia);
+    public ResponseEntity<Funcionario> adicionarFuncionario(@RequestBody Funcionario funcionario, @PathVariable Long idFarmacia) {
+        try {
+            Funcionario funcionarioCriado = funcionarioService.adicionarFuncionario(funcionario, idFarmacia);
+            return ResponseEntity.status(HttpStatus.CREATED).body(funcionarioCriado);
+        } catch (VendedorNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PutMapping("/{id}")
@@ -46,9 +57,8 @@ public class FuncionarioController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletarFuncionario(@PathVariable Long id) {
-        if (funcionarioService.deletarFuncionario(id)) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
+        return funcionarioService.deletarFuncionario(id)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 }

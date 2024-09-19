@@ -1,10 +1,13 @@
 package projetos.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import projetos.model.Medicamento;
 import projetos.dto.MedicamentoCompraDTO;
+import projetos.exception.EstoqueInsuficienteException;
+import projetos.exception.MedicamentoNotFoundException;
+import projetos.exception.VendedorNotFoundException;
+import projetos.model.Medicamento;
 import projetos.service.MedicamentoService;
 
 import java.util.List;
@@ -13,17 +16,22 @@ import java.util.List;
 @RequestMapping("/v1/medicamentos")
 public class MedicamentoController {
 
-    @Autowired
-    private MedicamentoService medicamentoService;
+    private final MedicamentoService medicamentoService;
+
+    public MedicamentoController(MedicamentoService medicamentoService) {
+        this.medicamentoService = medicamentoService;
+    }
 
     @GetMapping
-    public List<Medicamento> listarMedicamentos() {
-        return medicamentoService.listarMedicamentos();
+    public ResponseEntity<List<Medicamento>> listarMedicamentos() {
+        List<Medicamento> medicamentos = medicamentoService.listarMedicamentos();
+        return ResponseEntity.ok(medicamentos);
     }
 
     @GetMapping("/farmacia/{farmaciaId}")
-    public List<Medicamento> listarMedicamentosPorFarmacia(@PathVariable Long farmaciaId) {
-        return medicamentoService.listarMedicamentosPorFarmacia(farmaciaId);
+    public ResponseEntity<List<Medicamento>> listarMedicamentosPorFarmacia(@PathVariable Long farmaciaId) {
+        List<Medicamento> medicamentos = medicamentoService.listarMedicamentosPorFarmacia(farmaciaId);
+        return ResponseEntity.ok(medicamentos);
     }
 
     @GetMapping("/{id}")
@@ -35,13 +43,22 @@ public class MedicamentoController {
 
     @PostMapping("/comprar")
     public ResponseEntity<String> comprarMedicamento(@RequestBody List<MedicamentoCompraDTO> compraDTOList) {
-        String resposta = medicamentoService.comprarMedicamentos(compraDTOList);
-        return ResponseEntity.ok(resposta);
+        try {
+            String resposta = medicamentoService.comprarMedicamentos(compraDTOList);
+            return ResponseEntity.ok(resposta);
+        } catch (MedicamentoNotFoundException | EstoqueInsuficienteException | VendedorNotFoundException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @PostMapping("/farmacia/{idFarmacia}")
-    public Medicamento adicionarMedicamento(@RequestBody Medicamento medicamento, @PathVariable Long idFarmacia) {
-        return medicamentoService.adicionarMedicamento(medicamento, idFarmacia);
+    public ResponseEntity<Medicamento> adicionarMedicamento(@RequestBody Medicamento medicamento, @PathVariable Long idFarmacia) {
+        try {
+            Medicamento medicamentoCriado = medicamentoService.adicionarMedicamento(medicamento, idFarmacia);
+            return ResponseEntity.status(HttpStatus.CREATED).body(medicamentoCriado);
+        } catch (VendedorNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PutMapping("/{id}")
@@ -53,9 +70,8 @@ public class MedicamentoController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletarMedicamento(@PathVariable Long id) {
-        if (medicamentoService.deletarMedicamento(id)) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
+        return medicamentoService.deletarMedicamento(id)
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 }
